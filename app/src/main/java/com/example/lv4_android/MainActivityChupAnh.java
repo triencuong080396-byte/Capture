@@ -2,50 +2,37 @@ package com.example.lv4_android;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import android.media.Image;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.camera.core.CameraSelector;
-import androidx.camera.core.ImageCapture;
-import androidx.camera.core.ImageCapture.OutputFileOptions;
-import androidx.camera.core.ImageCaptureException;
-import androidx.camera.core.ImageProxy;
-import androidx.camera.core.Preview;
-import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import org.tensorflow.lite.task.vision.detector.Detection;
 
-import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.ExecutionException;
 
 public class MainActivityChupAnh extends AppCompatActivity {
     PreviewView previewView;
     Button btnChupAnh;
+    ImageView imgResult;
     CameraHelper cameraHelper;
-    ImageCapture imageCapture;
-    Detection detection;
-    Context context;
+    YOLODetector yoloDetector;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -54,44 +41,58 @@ public class MainActivityChupAnh extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main_chup_anh);
 
-        //Linking
+        // Linking UI
         previewView = findViewById(R.id.preview);
         btnChupAnh = findViewById(R.id.btn_ChupAnh);
+        imgResult = findViewById(R.id.imgResult);  // Cần thêm trong XML
 
-        cameraHelper = new CameraHelper(this,previewView);
-
-        //Check quyen chup anh
-        if(ActivityCompat.checkSelfPermission(this,
-                Manifest.permission.CAMERA)!= PackageManager.PERMISSION_GRANTED){
-            ActivityCompat.requestPermissions(this, new String[]{
-                    Manifest.permission.CAMERA}, 100);
+        // Kiểm tra quyền CAMERA
+        if (ActivityCompat.checkSelfPermission(this,
+                Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 100);
             return;
         }
+
+        // Khởi tạo Camera
         cameraHelper = new CameraHelper(this, previewView);
         cameraHelper.startCamera();
 
-        btnChupAnh.setOnClickListener(v -> cameraHelper.capture(new CameraHelper.OnBitmapCaptureListener() {
-            @Override
-            public void onBitmapCapture(Bitmap bitmap) {
-                ImageHelper.saveBitmap(MainActivityChupAnh.this,bitmap);
-                YOLODetector yoloDetector = new YOLODetector(context);
-                List<Detection> results = yoloDetector.detect(bitmap);
-                Bitmap output = drawDetections(bitmap,results);
-            }
+        // Khởi tạo YOLO Detector
+        try {
+            yoloDetector = new YOLODetector(this);
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Lỗi khởi tạo YOLO Detector", Toast.LENGTH_LONG).show();
+            return;
+        }
 
-            @Override
-            public void onError(String message) {
-                Toast.makeText(MainActivityChupAnh.this,message,Toast.LENGTH_LONG).show();
-            }
-        }));
+        // Bắt sự kiện nút chụp
+        btnChupAnh.setOnClickListener(v -> {
+            cameraHelper.capture(new CameraHelper.OnBitmapCaptureListener() {
+                @Override
+                public void onBitmapCapture(Bitmap bitmap) {
+                    ImageHelper.saveBitmap(MainActivityChupAnh.this, bitmap);
+                    List<Detection> results = yoloDetector.detect(bitmap);
+                    Bitmap output = drawDetections(bitmap, results);
+                    runOnUiThread(() -> imgResult.setImageBitmap(output));
+                }
 
+                @Override
+                public void onError(String message) {
+                    Toast.makeText(MainActivityChupAnh.this, message, Toast.LENGTH_LONG).show();
+                }
+            });
+        });
     }
 
     private Bitmap drawDetections(Bitmap bitmap, List<Detection> results) {
-        Canvas canvas = new Canvas(bitmap);
+        Bitmap mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+        Canvas canvas = new Canvas(mutableBitmap);
+
         Paint paint = new Paint();
         paint.setColor(Color.RED);
         paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(4);
 
         Paint textPaint = new Paint();
         textPaint.setColor(Color.YELLOW);
@@ -100,42 +101,14 @@ public class MainActivityChupAnh extends AppCompatActivity {
         for (Detection detection : results) {
             RectF box = detection.getBoundingBox();
             canvas.drawRect(box, paint);
-            String label = detection.getCategories().get(0).getLabel() + "(" + String.format("%.2f", detection.getCategories().get(0).getScore()) + ")";
+            String label = detection.getCategories().get(0).getLabel() +
+                    "(" + String.format("%.2f", detection.getCategories().get(0).getScore()) + ")";
             canvas.drawText(label, box.left, box.top - 10, textPaint);
         }
 
-        return bitmap;
+        return mutableBitmap;
     }
 
-    private void capture() {
-        if(imageCapture==null) return;
-        String timeStamp = new SimpleDateFormat("yyyMMdd_HHmmss",
-                Locale.US).format(new Date());
-        File photoFile = new File(getFilesDir(),"IMG_"+timeStamp+".jpg");
-
-        ImageCapture.OutputFileOptions outputFileOptions =
-                new ImageCapture.OutputFileOptions.Builder(photoFile).build();
-        imageCapture.takePicture(
-                outputFileOptions,
-                ContextCompat.getMainExecutor(this),
-                new ImageCapture.OnImageSavedCallback() {
-
-                    @Override
-                    public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                        Toast.makeText(MainActivityChupAnh.this,"Saved Picture: "+photoFile.getAbsolutePath(),Toast.LENGTH_LONG).show();;
-
-                    }
-
-                    @Override
-                    public void onError(@NonNull ImageCaptureException exception) {
-                        runOnUiThread(() -> Toast.makeText(MainActivityChupAnh.this,
-                                "Error: " + exception.getMessage(), Toast.LENGTH_LONG).show());
-                    }
-                }
-        );
-    }
-
-    // Hàm xử lý kết quả yêu cầu quyền
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String[] permissions,
@@ -143,16 +116,13 @@ public class MainActivityChupAnh extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
         if (requestCode == 100) {
-            // Kiểm tra quyền camera có được cấp không
             if (grantResults.length > 0
                     && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Đã cấp quyền CAMERA", Toast.LENGTH_SHORT).show();
-                cameraHelper.startCamera(); // Bắt đầu camera sau khi có quyền
+                cameraHelper.startCamera();
             } else {
                 Toast.makeText(this, "Bạn cần cấp quyền CAMERA để sử dụng chức năng này", Toast.LENGTH_LONG).show();
-                // Có thể tắt activity hoặc disable chức năng camera ở đây
             }
         }
     }
-
 }
