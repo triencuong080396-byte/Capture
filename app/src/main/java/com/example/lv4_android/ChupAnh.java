@@ -42,7 +42,7 @@ public class ChupAnh extends AppCompatActivity {
     private int cameraFacing = CameraSelector.LENS_FACING_FRONT; // mặc định camera trước
 
     private static final int REQUEST_CODE_CAMERA = 100;
-//
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -67,7 +67,7 @@ public class ChupAnh extends AppCompatActivity {
             startCamera();
         }
 
-        // nút chụp ảnh
+        // Button chụp ảnh
         btnChupAnh.setOnClickListener(v -> capturePhoto());
 
         // nút đổi camera
