@@ -50,7 +50,7 @@ public class ChupAnh extends AppCompatActivity {
         setContentView(R.layout.activity_chup_anh);
 
         previewView = findViewById(R.id.preview);
-        btnChupAnh = findViewById(R.id.btnChupAnh);
+        btnChupAnh = findViewById(R.id.btn_ChupAnh);
         btnDoiCamera = findViewById(R.id.btnDoiCamera);
         imgThumbnail = findViewById(R.id.imgThumbnail);
 

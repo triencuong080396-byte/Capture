@@ -44,7 +44,7 @@
 
         <!-- Chụp ảnh -->
         <ImageButton
-            android:id="@+id/btnChupAnh"
+            android:id="@+id/btn_ChupAnh"
             android:layout_width="0dp"
             android:layout_height="90dp"
             android:layout_gravity="center"
