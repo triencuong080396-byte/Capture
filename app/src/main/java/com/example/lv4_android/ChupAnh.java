@@ -89,7 +89,7 @@ public class ChupAnh extends AppCompatActivity {
             }
         });
     }
-//
+
     private void startCamera() {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
                 ProcessCameraProvider.getInstance(this);
