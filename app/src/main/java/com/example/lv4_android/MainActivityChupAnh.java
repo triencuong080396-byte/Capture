@@ -2,6 +2,7 @@ package com.example.lv4_android;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -44,6 +45,7 @@ public class MainActivityChupAnh extends AppCompatActivity {
     CameraHelper cameraHelper;
     ImageCapture imageCapture;
     Detection detection;
+    Context context;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -56,7 +58,7 @@ public class MainActivityChupAnh extends AppCompatActivity {
         previewView = findViewById(R.id.preview);
         btnChupAnh = findViewById(R.id.btn_ChupAnh);
 
-//        cameraHelper = new CameraHelper(this,previewView)
+        cameraHelper = new CameraHelper(this,previewView);
 
         //Check quyen chup anh
         if(ActivityCompat.checkSelfPermission(this,
@@ -68,11 +70,12 @@ public class MainActivityChupAnh extends AppCompatActivity {
         cameraHelper = new CameraHelper(this, previewView);
         cameraHelper.startCamera();
 
-        btn_ChupAnh.setOnClickListener(v -> cameraHelper.capture(new CameraHelper.OnBitmapCaptureListener() {
+        btnChupAnh.setOnClickListener(v -> cameraHelper.capture(new CameraHelper.OnBitmapCaptureListener() {
             @Override
             public void onBitmapCapture(Bitmap bitmap) {
                 ImageHelper.saveBitmap(MainActivityChupAnh.this,bitmap);
-                List<Detection> results = yoloDetection.detect(bitmap);
+                YOLODetector yoloDetector = new YOLODetector(context);
+                List<Detection> results = yoloDetector.detect(bitmap);
                 Bitmap output = drawDetections(bitmap,results);
             }
 
@@ -94,16 +97,15 @@ public class MainActivityChupAnh extends AppCompatActivity {
         textPaint.setColor(Color.YELLOW);
         textPaint.setTextSize(40);
 
-        for (Detection detection: results);
-        RectF box = detection.getBoundingBox();
-        canvas.drawRect(box,paint);
-        String label = detection.getCategories().get(0).getLabel() + "(" + String.format("%.2f",detection.getCategories().get(0).getScore()) + ")";
-        canvas.drawText(label,box.left,box.top-10,textPaint);
+        for (Detection detection : results) {
+            RectF box = detection.getBoundingBox();
+            canvas.drawRect(box, paint);
+            String label = detection.getCategories().get(0).getLabel() + "(" + String.format("%.2f", detection.getCategories().get(0).getScore()) + ")";
+            canvas.drawText(label, box.left, box.top - 10, textPaint);
+        }
 
         return bitmap;
     }
-
-
 
     private void capture() {
         if(imageCapture==null) return;
@@ -117,20 +119,21 @@ public class MainActivityChupAnh extends AppCompatActivity {
                 outputFileOptions,
                 ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageSavedCallback() {
+
                     @Override
-                    public void onImageSaved(ImageCapture.@org.jspecify.annotations.NonNull OutputFileResults outputFileResults) {
+                    public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
                         Toast.makeText(MainActivityChupAnh.this,"Saved Picture: "+photoFile.getAbsolutePath(),Toast.LENGTH_LONG).show();;
+
                     }
 
                     @Override
-                    public void onError(@org.jspecify.annotations.NonNull ImageCaptureException exception) {
+                    public void onError(@NonNull ImageCaptureException exception) {
                         runOnUiThread(() -> Toast.makeText(MainActivityChupAnh.this,
                                 "Error: " + exception.getMessage(), Toast.LENGTH_LONG).show());
                     }
                 }
         );
     }
-
 
     // Hàm xử lý kết quả yêu cầu quyền
     @Override

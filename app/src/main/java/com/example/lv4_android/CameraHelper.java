@@ -88,7 +88,7 @@ public class CameraHelper {
                     }
 
                     @Override
-                    public void onError(@org.jspecify.annotations.NonNull ImageCaptureException exception) {
+                    public void onError(@NonNull ImageCaptureException exception) {
                         listener.onError("Loi chup anh: " + exception.getMessage());
                     }
                 });
